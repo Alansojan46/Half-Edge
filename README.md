@@ -1,4 +1,4 @@
-# Half-Edge Data Structure — Implementation and Optimization
+# Half-Edge Data Structure — Implementation and Optimization - Soft Eçngineering Course - VIBOT M1 - Université Bourgogne Europe
 
 This repository is a C++ learning project exploring **different implementations of the half-edge data structure**, with a particular focus on how to find and connect **twin half-edges** efficiently.
 
