@@ -1,4 +1,3 @@
-
 #include <iostream>
 #include <utility>
 #include <vector>
@@ -112,7 +111,7 @@ public:
             if (length == 0.0)
                 continue;
 
-            direction /= length;
+            direction = direction / length;
 
             Eigen::Vector3d inward = c - (a + b) * 0.5;
             inward -= inward.dot(direction) * direction;
@@ -293,8 +292,7 @@ public:
     
     void drawFaces() const {
 
-        const Eigen::Vector3d lightDirection =
-            Eigen::Vector3d(0.5, 0.8, 1.0).normalized();
+        glColor3f(0.55f, 0.55f, 0.55f);
 
         glEnable(GL_POLYGON_OFFSET_FILL);
         glPolygonOffset(1.0f, 1.0f);
@@ -311,22 +309,6 @@ public:
             const Eigen::Vector3d& b = h0->target->position;
             const Eigen::Vector3d& c = h1->target->position;
 
-            Eigen::Vector3d normal = (b - a).cross(c - a);
-
-            if (normal.norm() == 0.0)
-                continue;
-
-            normal.normalize();
-
-            double diffuse = normal.dot(lightDirection);
-
-            if (diffuse < 0.0)
-                diffuse = 0.0;
-
-            double grey = 0.42 + 0.33 * diffuse;
-
-            glColor3d(grey, grey, grey);
-
             glVertex3dv(a.data());
             glVertex3dv(b.data());
             glVertex3dv(c.data());
@@ -335,7 +317,7 @@ public:
         glEnd();
 
         glDisable(GL_POLYGON_OFFSET_FILL);
-}
+    }
 
 
 private:
@@ -455,7 +437,6 @@ private:
 
 mesh* cubeOnScreen = nullptr;
 
-
 double yaw = 0.7;
 double pitch = 0.35;
 double cameraDistance = 3.5;
@@ -464,6 +445,8 @@ bool dragging = false;
 
 int lastMouseX = 0;
 int lastMouseY = 0;
+
+
 
 
 
@@ -529,8 +512,8 @@ void motion(int x, int y) {
         int dx = x - lastMouseX;
         int dy = y - lastMouseY;
 
-        yaw += dx * 0.01;
-        pitch -= dy * 0.01;
+        yaw =yaw + dx * 0.01;
+        pitch = pitch - dy * 0.01;
 
         if (pitch > 1.5)
             pitch = 1.5;
@@ -578,25 +561,6 @@ void keyboard(unsigned char key, int x, int y) {
 
 
 
-void reshape(int width, int height) {
-
-    if (height == 0)
-        height = 1;
-
-    glViewport(0, 0, width, height);
-
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-
-    gluPerspective(
-        45.0,
-        double(width) / height,
-        0.1,
-        100.0
-    );
-
-    glMatrixMode(GL_MODELVIEW);
-}
 
 
 int main(int argc, char** argv) {
@@ -646,9 +610,16 @@ int main(int argc, char** argv) {
 
     glEnable(GL_DEPTH_TEST);
 
+    glViewport(0, 0, 800, 600);
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+
+    gluPerspective(45.0, 800.0 / 600.0, 0.1, 100.0);
+
+    glMatrixMode(GL_MODELVIEW);
 
     glutDisplayFunc(display);
-    glutReshapeFunc(reshape);
 
     glutMouseFunc(mouse);
     glutMotionFunc(motion);
@@ -661,4 +632,5 @@ int main(int argc, char** argv) {
 
     return 0;
 }
+
 
