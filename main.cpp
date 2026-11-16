@@ -3,6 +3,8 @@
 #include <vector>
 #include <Eigen/Dense>
 #include <GL/freeglut.h>
+#include <cmath>
+
 
 class Vertex;
 class Face;
@@ -83,63 +85,159 @@ public:
     }
 
     
-    void drawHalfEdges() const {
 
-        glLineWidth(2.5f);
-        glColor3f(0.1f, 0.85f, 1.0f);
+void drawHalfEdges() const {
 
-        glBegin(GL_LINES);
+    glLineWidth(2.5f);
+    glColor3f(0.1f, 0.85f, 1.0f);
 
-        for (int i = 0; i < TabHalfEdge.size(); ++i) {
+    glBegin(GL_LINES);
 
-            HalfEdge* h = TabHalfEdge[i];
+    for (int i = 0; i < TabHalfEdge.size(); ++i) {
+
+        HalfEdge* h = TabHalfEdge[i];
 
         if (h == h->face->he) {
+            // First half-edge: RED
             glColor3f(1.0f, 0.0f, 0.0f);
-        } else {
+        }
+        else if (h == h->face->he->next) {
+            // Second half-edge: GREEN
+            glColor3f(0.0f, 1.0f, 0.0f);
+        }
+        else {
+            // Third half-edge: CYAN
             glColor3f(0.1f, 0.85f, 1.0f);
         }
 
+        const Eigen::Vector3d& a = h->next->next->target->position;
+        const Eigen::Vector3d& b = h->target->position;
+        const Eigen::Vector3d& c = h->next->target->position;
 
-            const Eigen::Vector3d& a = h->next->next->target->position;
-            const Eigen::Vector3d& b = h->target->position;
-            const Eigen::Vector3d& c = h->next->target->position;
+        Eigen::Vector3d direction = b - a;
+        double length = direction.norm();
 
-            Eigen::Vector3d direction = b - a;
-            double length = direction.norm();
+        if (length == 0.0)
+            continue;
 
-            if (length == 0.0)
-                continue;
+        direction = direction / length;
 
-            direction = direction / length;
+        Eigen::Vector3d inward = c - (a + b) * 0.5;
+        inward -= inward.dot(direction) * direction;
 
-            Eigen::Vector3d inward = c - (a + b) * 0.5;
-            inward -= inward.dot(direction) * direction;
+        if (inward.norm() == 0.0)
+            continue;
 
-            if (inward.norm() == 0.0)
-                continue;
+        inward.normalize();
 
-            inward.normalize();
+        Eigen::Vector3d offset = 0.08 * inward;
 
-            Eigen::Vector3d offset = 0.055 * inward;
+        Eigen::Vector3d from = a + 0.15 * (b - a) + offset;
+        Eigen::Vector3d to = a + 0.85 * (b - a) + offset;
 
-            Eigen::Vector3d from = a + 0.15 * (b - a) + offset;
-            Eigen::Vector3d to = a + 0.85 * (b - a) + offset;
+        Eigen::Vector3d arrowLeft = to - 0.10 * length * direction
+                                + 0.08 * length * inward;
 
-            Eigen::Vector3d arrowLeft = to - 0.11 * length * direction
-                                    + 0.055 * length * inward;
+        Eigen::Vector3d arrowRight = to - 0.10 * length * direction
+                                 - 0.08 * length * inward;
 
-            Eigen::Vector3d arrowRight = to - 0.11 * length * direction
-                                     - 0.055 * length * inward;
+        glVertex3dv(from.data());
+        glVertex3dv(to.data());
 
-            glVertex3dv(from.data());
-            glVertex3dv(to.data());
+        glVertex3dv(to.data());
+        glVertex3dv(arrowLeft.data());
 
-            glVertex3dv(to.data());
-            glVertex3dv(arrowLeft.data());
+        glVertex3dv(to.data());
+        glVertex3dv(arrowRight.data());
+    }
 
-            glVertex3dv(to.data());
-            glVertex3dv(arrowRight.data());
+    glEnd();
+}
+
+
+
+
+void drawTwinArrows() const {
+
+    glLineWidth(3.0f);
+    glColor3f(1.0f, 0.25f, 0.65f);
+
+    glBegin(GL_LINES);
+
+    for (int i = 0; i < TabHalfEdge.size(); ++i) {
+
+        HalfEdge* h = TabHalfEdge[i];
+
+        if (h == nullptr || h->twin == nullptr)
+            continue;
+
+        const Eigen::Vector3d& a =
+            h->next->next->target->position;
+
+        const Eigen::Vector3d& b =
+            h->target->position;
+
+        const Eigen::Vector3d& c1 =
+            h->next->target->position;
+
+        const Eigen::Vector3d& c2 =
+            h->twin->next->target->position;
+
+        // Shared edge and normalized direction
+        Eigen::Vector3d edge = b - a;
+
+        double length = edge.norm();
+
+        if (length == 0.0)
+            continue;
+
+        Eigen::Vector3d direction = edge / length;
+
+        // Crossing point
+        Eigen::Vector3d crossing = a + 0.35 * edge;
+
+        // Perpendicular inward direction of first triangle
+        Eigen::Vector3d inward1 = c1 - crossing;
+        inward1 -= inward1.dot(direction) * direction;
+
+        // Perpendicular inward direction of twin triangle
+        Eigen::Vector3d inward2 = c2 - crossing;
+        inward2 -= inward2.dot(direction) * direction;
+
+        if (inward1.norm() == 0.0 ||
+            inward2.norm() == 0.0)
+            continue;
+
+        inward1.normalize();
+        inward2.normalize();
+
+        // Starting and ending points
+        Eigen::Vector3d from = crossing + 0.08 * inward1;
+        Eigen::Vector3d to = crossing + 0.08 * inward2;
+
+        // Arrowhead
+        Eigen::Vector3d wingCenter = to - 0.04 * inward2;
+
+        Eigen::Vector3d wing1 =
+            wingCenter + 0.025 * edge;
+
+        Eigen::Vector3d wing2 =
+            wingCenter - 0.025 * edge;
+
+        // First segment
+        glVertex3dv(from.data());
+        glVertex3dv(crossing.data());
+
+        // Second segment
+        glVertex3dv(crossing.data());
+        glVertex3dv(to.data());
+
+        // Arrowhead
+        glVertex3dv(to.data());
+        glVertex3dv(wing1.data());
+
+        glVertex3dv(to.data());
+        glVertex3dv(wing2.data());
     }
 
     glEnd();
@@ -435,91 +533,74 @@ private:
 
 
 
+// The mesh already constructed in main().
 mesh* cubeOnScreen = nullptr;
 
-double yaw = 0.7;
-double pitch = 0.35;
+// Rotation angles in DEGREES (used by glRotated).
+double rotationX = 20.0;
+double rotationY = -40.0;
 double cameraDistance = 3.5;
 
+// Mouse dragging state.
 bool dragging = false;
-
 int lastMouseX = 0;
 int lastMouseY = 0;
 
-
-
-
-
-
+// Draw the cube using a fixed camera and a rotating model.
 void display() {
-
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    double centerX = 0.5;
-    double centerY = 0.5;
-    double centerZ = -0.5;
+    // Put the object in front of the camera (which stays at the origin).
+    glTranslated(0.0, 0.0, -cameraDistance);
 
-    double cameraX = centerX +
-        cameraDistance * cos(pitch) * sin(yaw);
+    // Rotate the object, instead of orbiting the camera around it.
+    glRotated(rotationX, 1.0, 0.0, 0.0);
+    glRotated(rotationY, 0.0, 1.0, 0.0);
 
-    double cameraY = centerY +
-        cameraDistance * sin(pitch);
+    // Cube center is (0.5, 0.5, -0.5).
+    // Move it to the origin FIRST (matrix operations apply right-to-left).
+    glTranslated(-0.5, -0.5, 0.5);
 
-    double cameraZ = centerZ +
-        cameraDistance * cos(pitch) * cos(yaw);
-
-    gluLookAt(
-        cameraX, cameraY, cameraZ,
-        centerX, centerY, centerZ,
-        0.0, 1.0, 0.0
-    );
-    
     if (cubeOnScreen != nullptr) {
-
         cubeOnScreen->drawFaces();
         cubeOnScreen->drawHalfEdges();
+        cubeOnScreen->drawTwinArrows();
         cubeOnScreen->drawPoints();
     }
-
 
     glutSwapBuffers();
 }
 
-
+// Start/stop rotating when the left mouse button is pressed/released.
 void mouse(int button, int state, int x, int y) {
-
     if (button == GLUT_LEFT_BUTTON) {
-
         if (state == GLUT_DOWN) {
             dragging = true;
             lastMouseX = x;
             lastMouseY = y;
         }
-
         if (state == GLUT_UP) {
             dragging = false;
         }
     }
 }
 
+// Rotate the cube according to mouse displacement.
 void motion(int x, int y) {
-
     if (dragging) {
-
         int dx = x - lastMouseX;
         int dy = y - lastMouseY;
 
-        yaw =yaw + dx * 0.01;
-        pitch = pitch - dy * 0.01;
+        // Each mouse pixel changes the angle by 0.5 degrees.
+        rotationY -= dx * 0.5;
+        rotationX -= dy * 0.5;
 
-        if (pitch > 1.5)
-            pitch = 1.5;
-
-        if (pitch < -1.5)
-            pitch = -1.5;
+        // Keep a similar vertical range to the former orbit camera.
+        if (rotationX > 85.0) rotationX = 85.0;
+        if (rotationX < -85.0) rotationX = -85.0;
 
         lastMouseX = x;
         lastMouseY = y;
@@ -528,40 +609,26 @@ void motion(int x, int y) {
     }
 }
 
+// Zoom by moving the cube closer/farther from the fixed camera.
 void mouseWheel(int wheel, int direction, int x, int y) {
+    if (direction > 0) cameraDistance *= 0.9;
+    if (direction < 0) cameraDistance *= 1.1;
 
-    if (direction > 0) {
-        cameraDistance *= 0.9;
-    }
-
-    if (direction < 0) {
-        cameraDistance *= 1.1;
-    }
-
-    if (cameraDistance < 1.0)
-        cameraDistance = 1.0;
-
-    if (cameraDistance > 15.0)
-        cameraDistance = 15.0;
+    if (cameraDistance < 1.0) cameraDistance = 1.0;
+    if (cameraDistance > 15.0) cameraDistance = 15.0;
 
     glutPostRedisplay();
 }
 
+// Press R to restore the original view.
 void keyboard(unsigned char key, int x, int y) {
-
     if (key == 'r' || key == 'R') {
-
-        yaw = 0.7;
-        pitch = 0.35;
+        rotationX = 20.0;
+        rotationY = -40.0;
         cameraDistance = 3.5;
-
         glutPostRedisplay();
     }
 }
-
-
-
-
 
 int main(int argc, char** argv) {
 
@@ -604,7 +671,7 @@ int main(int argc, char** argv) {
 
     glutInitWindowSize(800, 600);
 
-    glutCreateWindow("Half-Edge Cube - Vertices");
+    glutCreateWindow("Half-Edge Cube");
 
     glClearColor(0.07f, 0.09f, 0.15f, 1.0f);
 
@@ -632,5 +699,3 @@ int main(int argc, char** argv) {
 
     return 0;
 }
-
-
